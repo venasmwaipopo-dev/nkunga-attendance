@@ -4,9 +4,11 @@ import mysql.connector
 from flask_mail import Mail, Message
 import random
 import os
+import urllib.parse
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
+
 
 # ================= EMAIL =================
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -27,19 +29,27 @@ if missing:
     print("Missing env variables:", missing)
 
 # ================= DATABASE =================
-db = None
-cursor = None
+print("DB URL:", os.getenv("MYSQL_PUBLIC_URL"))
+db_url = os.getenv("MYSQL_PUBLIC_URL")
 
-if not missing:
-    db = mysql.connector.connect(
-        host=os.getenv("MYSQLHOST"),
-        user=os.getenv("MYSQLUSER"),
-        password=os.getenv("MYSQLPASSWORD"),
-        database=os.getenv("MYSQLDATABASE"),
-        port=int(os.getenv("MYSQLPORT", 3306))
-    )
-    cursor = db.cursor(buffered=True)
+# kama umeweka variable jina tofauti, tumia fallback hii pia
+if not db_url:
+    db_url = os.getenv("MYSQL_URL")
 
+if not db_url:
+    raise Exception("Missing MYSQL connection URL")
+
+url = urllib.parse.urlparse(db_url)
+
+db = mysql.connector.connect(
+    host=url.hostname,
+    user=url.username,
+    password=url.password,
+    database=url.path.lstrip("/"),
+    port=url.port
+)
+
+cursor = db.cursor(buffered=True)
 # ================= HOME =================
 @app.route("/")
 def home():
