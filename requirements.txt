@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 Flask
 mysql-connector-python
 Flask-Mail
+=======
+Flask
+mysql-connector-python
+Flask-Mail
+>>>>>>> 2e0ff43 (final deployment)
 gunicorn
