@@ -3,31 +3,43 @@ from datetime import datetime
 import mysql.connector
 from flask_mail import Mail, Message
 import random
+import os
 
+# =====================
+# FLASK APP INIT
+# =====================
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
-# EMAIL
+# =====================
+# EMAIL CONFIG (Flask-Mail)
+# =====================
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'venasmwaipopo@gmail.com'
-app.config['MAIL_PASSWORD'] = 'udbj zgsv vues juyy'
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 
 mail = Mail(app)
 
+# =====================
+# OTP STORAGE
+# =====================
 otp_store = {}
-# DATABASE
+
+# =====================
+# DATABASE CONNECTION (RAILWAY)
+# =====================
 db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="Venasmwaipopo47@",
-    database="teacher_attendance"
+    host=os.getenv("MYSQLHOST"),
+    user=os.getenv("MYSQLUSER"),
+    password=os.getenv("MYSQLPASSWORD"),
+    database=os.getenv("MYSQLDATABASE"),
+    port=int(os.getenv("MYSQLPORT", 3306)),
+    auth_plugin='mysql_native_password'
 )
 
 cursor = db.cursor(buffered=True)
-
-
 #
 # ================= LOGIN =================
 @app.route("/")
