@@ -21,23 +21,14 @@ mail = Mail(app)
 
 otp_store = {}
 
-# ================= ENV CHECK =================
-required_envs = ["MYSQLHOST", "MYSQLUSER", "MYSQLPASSWORD", "MYSQLDATABASE"]
-
-missing = [env for env in required_envs if not os.getenv(env)]
-if missing:
-    print("Missing env variables:", missing)
-
 # ================= DATABASE =================
-print("DB URL:", os.getenv("MYSQL_PUBLIC_URL"))
+# ================= DATABASE =================
+
 db_url = os.getenv("MYSQL_PUBLIC_URL")
 
-# kama umeweka variable jina tofauti, tumia fallback hii pia
 if not db_url:
-    db_url = os.getenv("MYSQL_URL")
-
-if not db_url:
-    raise Exception("Missing MYSQL connection URL")
+    print("MYSQL_PUBLIC_URL not found")
+    exit()
 
 url = urllib.parse.urlparse(db_url)
 
