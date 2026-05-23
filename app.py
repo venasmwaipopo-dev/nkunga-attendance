@@ -30,22 +30,42 @@ otp_store = {}
 # =====================
 required_envs = ["MYSQLHOST", "MYSQLUSER", "MYSQLPASSWORD", "MYSQLDATABASE"]
 
-for env in required_envs:
-    if not os.getenv(env):
-        raise Exception(f"Missing environment variable: {env}")
-# DATABASE CONNECTION (RAILWAY)
+
+## =====================
+# ENV CHECK (SAFE)
 # =====================
 
-db = mysql.connector.connect(
-    host=os.getenv("MYSQLHOST"),
-    user=os.getenv("MYSQLUSER"),
-    password=os.getenv("MYSQLPASSWORD"),
-    database=os.getenv("MYSQLDATABASE"),
-    port=int(os.getenv("MYSQLPORT", 3306)),
-    auth_plugin='mysql_native_password'
-)
-cursor = db.cursor(buffered=True)
-#
+required_envs = ["MYSQLHOST", "MYSQLUSER", "MYSQLPASSWORD", "MYSQLDATABASE"]
+
+missing = [env for env in required_envs if not os.getenv(env)]
+
+if missing:
+    print(f"⚠ Missing env variables: {missing}")
+
+# =====================
+# DATABASE CONNECTION (RAILWAY / RENDER)
+# =====================
+
+db = None
+cursor = None
+
+if not missing:
+    db = mysql.connector.connect(
+        host=os.getenv("MYSQLHOST"),
+        user=os.getenv("MYSQLUSER"),
+        password=os.getenv("MYSQLPASSWORD"),
+        database=os.getenv("MYSQLDATABASE"),
+        port=int(os.getenv("MYSQLPORT", 3306)),
+        auth_plugin='mysql_native_password'
+    )
+    cursor = db.cursor(buffered=True)
+
+
+# =====================
+# RUN FLASK APP
+# =====================
+
+
 # ================= LOGIN =================
 @app.route("/")
 def home():
@@ -573,5 +593,5 @@ def get_records():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
