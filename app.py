@@ -28,8 +28,14 @@ mail = Mail(app)
 otp_store = {}
 
 # =====================
+required_envs = ["MYSQLHOST", "MYSQLUSER", "MYSQLPASSWORD", "MYSQLDATABASE"]
+
+for env in required_envs:
+    if not os.getenv(env):
+        raise Exception(f"Missing environment variable: {env}")
 # DATABASE CONNECTION (RAILWAY)
 # =====================
+
 db = mysql.connector.connect(
     host=os.getenv("MYSQLHOST"),
     user=os.getenv("MYSQLUSER"),
@@ -38,7 +44,6 @@ db = mysql.connector.connect(
     port=int(os.getenv("MYSQLPORT", 3306)),
     auth_plugin='mysql_native_password'
 )
-
 cursor = db.cursor(buffered=True)
 #
 # ================= LOGIN =================
@@ -568,4 +573,5 @@ def get_records():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
