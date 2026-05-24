@@ -5,12 +5,17 @@ from flask_mail import Mail, Message
 import random
 import os
 import urllib.parse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
+print("🚀 APP STARTING...")
+print("DB URL =", os.getenv("MYSQL_PUBLIC_URL"))
 
-# ================= EMAIL =================
+# ================= EMAIL CONFIG =================
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -21,34 +26,48 @@ mail = Mail(app)
 
 otp_store = {}
 
-# ================= DATABASE =================
-# ================= DATABASE =================
+# ================= DATABASE CONNECTION =================
+db = None
+cursor = None
 
 db_url = os.getenv("MYSQL_PUBLIC_URL")
 
 if not db_url:
-    print("MYSQL_PUBLIC_URL not found")
-    exit()
+    print("❌ MYSQL_PUBLIC_URL NOT SET")
+else:
+    try:
+        url = urllib.parse.urlparse(db_url)
 
-url = urllib.parse.urlparse(db_url)
+        db = mysql.connector.connect(
+            host=url.hostname,
+            user=url.username,
+            password=url.password,
+            database=url.path.lstrip("/"),
+            port=url.port
+        )
 
-db = mysql.connector.connect(
-    host=url.hostname,
-    user=url.username,
-    password=url.password,
-    database=url.path.lstrip("/"),
-    port=url.port
-)
+        cursor = db.cursor(buffered=True)
+        print("✅ DATABASE CONNECTED SUCCESSFULLY")
 
-cursor = db.cursor(buffered=True)
+    except Exception as e:
+        print("❌ DATABASE CONNECTION FAILED")
+        print(e)
+        db = None
+        cursor = None
+
+
 # ================= HOME =================
 @app.route("/")
 def home():
     return render_template("login.html")
 
+
 # ================= LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
+    if cursor is None:
+        return "Database not connected ❌"
+
     username = request.form["username"]
     password = request.form["password"]
 
@@ -65,13 +84,18 @@ def login():
 
     return "Wrong username or password ❌"
 
+
 # ================= REGISTER =================
 @app.route("/register")
 def register():
     return render_template("register.html")
 
+
 @app.route("/save_register", methods=["POST"])
 def save_register():
+    if cursor is None:
+        return "Database not connected ❌"
+
     fullname = request.form["fullname"]
     username = request.form["username"]
     password = request.form["password"]
@@ -88,8 +112,8 @@ def save_register():
     """, (fullname, username, password, subject, email))
 
     db.commit()
-
     return "Registered successfully ✅"
+
 
 # ================= FORGOT PASSWORD =================
 @app.route("/forgot_password")
@@ -98,6 +122,7 @@ def forgot_password():
 
 @app.route("/send_code", methods=["POST"])
 def send_code():
+    return "OTP temporarily disabled ✅"
     email = request.form["email"]
 
     otp = random.randint(100000, 999999)
@@ -114,6 +139,7 @@ def send_code():
 
     return render_template("enter_code.html", email=email)
 
+
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
     email = request.form["email"]
@@ -129,10 +155,10 @@ def verify_code():
         db.commit()
 
         otp_store.pop(email, None)
-
         return "Password reset successful ✔️"
 
     return "Invalid OTP ❌"
+
 
 # ================= DASHBOARD =================
 @app.route("/dashboard")
@@ -148,7 +174,6 @@ def dashboard():
         FROM teachers
         WHERE username=%s
     """, (username,))
-
     user = cursor.fetchone()
 
     cursor.execute("""
@@ -157,10 +182,10 @@ def dashboard():
         WHERE username=%s
         ORDER BY checkin_time DESC
     """, (username,))
-
     records = cursor.fetchall()
 
     return render_template("dashboard.html", user=user, records=records)
+
 
 # ================= CHECKIN =================
 @app.route("/checkin", methods=["POST"])
@@ -185,7 +210,6 @@ def checkin():
         FROM teachers
         WHERE username=%s
     """, (username,))
-
     teacher = cursor.fetchone()
 
     now = datetime.now()
@@ -207,13 +231,22 @@ def checkin():
 
     return redirect("/dashboard")
 
+
 # ================= LOGOUT =================
 @app.route("/logout")
 def logout():
     session.pop("username", None)
     return redirect("/")
 
-# ================= RUN APP =================
+
+# ================= ERROR HANDLER =================
+@app.errorhandler(500)
+def internal_error(e):
+    print("❌ INTERNAL ERROR")
+    return "Internal Server Error - check logs", 500
+
+
+# ================= RUN =================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
