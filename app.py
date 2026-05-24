@@ -27,19 +27,24 @@ mail = Mail(app)
 otp_store = {}
 
 # ================= DATABASE CONNECTION =================
+db_url = os.getenv("MYSQL_PUBLIC_URL")
+
+if not db_url:
+    raise Exception("MYSQL_PUBLIC_URL missing ❌")
+
+url = urllib.parse.urlparse(db_url)
 db = mysql.connector.connect(
     host=url.hostname,
     user=url.username,
     password=url.password,
     database=url.path.lstrip("/"),
-    port=url.port
+    port=url.port,
+    connection_timeout=30
 )
 
 cursor = db.cursor(buffered=True)
 
 print("✅ DATABASE CONNECTED SUCCESSFULLY")
-
-
 # ================= HOME =================
 @app.route("/")
 def home():
