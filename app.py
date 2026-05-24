@@ -27,33 +27,17 @@ mail = Mail(app)
 otp_store = {}
 
 # ================= DATABASE CONNECTION =================
-db = None
-cursor = None
+db = mysql.connector.connect(
+    host=url.hostname,
+    user=url.username,
+    password=url.password,
+    database=url.path.lstrip("/"),
+    port=url.port
+)
 
-db_url = os.getenv("MYSQL_PUBLIC_URL")
+cursor = db.cursor(buffered=True)
 
-if not db_url:
-    print("❌ MYSQL_PUBLIC_URL NOT SET")
-else:
-    try:
-        url = urllib.parse.urlparse(db_url)
-
-        db = mysql.connector.connect(
-            host=url.hostname,
-            user=url.username,
-            password=url.password,
-            database=url.path.lstrip("/"),
-            port=url.port
-        )
-
-        cursor = db.cursor(buffered=True)
-        print("✅ DATABASE CONNECTED SUCCESSFULLY")
-
-    except Exception as e:
-        print("❌ DATABASE CONNECTION FAILED")
-        print(e)
-        db = None
-        cursor = None
+print("✅ DATABASE CONNECTED SUCCESSFULLY")
 
 
 # ================= HOME =================
@@ -65,25 +49,29 @@ def home():
 # ================= LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
+
     if cursor is None:
         return "Database not connected ❌"
 
-    username = request.form["username"]
-    password = request.form["password"]
+    try:
+        username = request.form["username"]
+        password = request.form["password"]
 
-    cursor.execute(
-        "SELECT * FROM teachers WHERE username=%s AND password=%s",
-        (username, password)
-    )
+        cursor.execute(
+            "SELECT * FROM teachers WHERE username=%s AND password=%s",
+            (username, password)
+        )
 
-    user = cursor.fetchone()
+        user = cursor.fetchone()
 
-    if user:
-        session["username"] = username
-        return redirect("/dashboard")
+        if user:
+            session["username"] = username
+            return redirect("/dashboard")
 
-    return "Wrong username or password ❌"
+        return "Wrong username or password ❌"
 
+    except Exception as e:
+        return f"LOGIN ERROR: {e}"
 
 # ================= REGISTER =================
 @app.route("/register")
