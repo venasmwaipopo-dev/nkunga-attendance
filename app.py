@@ -256,16 +256,24 @@ def send_code():
         msg.body = f"""
 Hello {user['full_name']},
 
-Your OTP Code is:
-
-{otp}
+Your OTP Code is: {otp}
 
 This code is valid for 5 minutes.
 
 Do not share it with anyone.
+
+NKUNGA Secondary School
+Teachers Attendance System
 """
 
+        print("================================")
+        print("SENDING OTP TO:", email)
+        print("OTP:", otp)
+
         mail.send(msg)
+
+        print("OTP SENT SUCCESSFULLY")
+        print("================================")
 
     except Exception as e:
         print("EMAIL ERROR:", e)
@@ -276,15 +284,6 @@ Do not share it with anyone.
         email=email,
         otp_sent=True
     )
-
-print("Sending OTP to:", email)
-print("OTP:", otp)
-
-mail.send(msg)
-
-print("OTP sent successfully")
-print("OTP SENT TO:", email)
-print("OTP:", otp)
 # ================= VERIFY OTP =================
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
