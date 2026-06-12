@@ -226,12 +226,39 @@ def send_code():
     print("OTP FOR DEBUG:", otp)  # unaweza kuona Render logs
 
     return render_template("enter_code.html", email=email)
-    @app.route("/send_code", methods=["POST"])
-def send_code():
+# ================= VERIFY OTP =================
+@app.route("/verify_code", methods=["POST"])
+def verify_code():
     email = request.form["email"]
+    code = int(request.form["code"])
+    new_password = request.form["new_password"]
 
-    otp = random.randint(100000, 999999)
-    otp_store[email] = {"otp": otp, "time": datetime.now()}
+    data = otp_store.get(email)
+
+    if not data:
+        return "Invalid OTP ❌"
+
+    if datetime.now() - data["time"] > timedelta(minutes=5):
+        return "OTP expired ❌"
+
+    if data["otp"] == code:
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            UPDATE teachers
+            SET password=%s
+            WHERE email=%s
+        """, (generate_password_hash(new_password), email))
+
+        db.commit()
+        db.close()
+
+        otp_store.pop(email)
+
+        return redirect("/")
+
+    return "Wrong OTP ❌"
 
     try:
         msg = Message(
