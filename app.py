@@ -215,55 +215,37 @@ def checkin():
 def forgot_password():
     return render_template("forgot_password.html")
 
+
 @app.route("/send_code", methods=["POST"])
 def send_code():
     email = request.form["email"]
-    otp = random.randint(100000, 999999)
 
+    otp = random.randint(100000, 999999)
     otp_store[email] = {"otp": otp, "time": datetime.now()}
 
-    msg = Message("OTP Code",
-                  sender=app.config["MAIL_USERNAME"],
-                  recipients=[email])
-    msg.body = f"Your OTP is: {otp}"
-    mail.send(msg)
+    print("OTP FOR DEBUG:", otp)  # unaweza kuona Render logs
 
     return render_template("enter_code.html", email=email)
-
-# ================= VERIFY OTP =================
-@app.route("/verify_code", methods=["POST"])
-def verify_code():
+    @app.route("/send_code", methods=["POST"])
+def send_code():
     email = request.form["email"]
-    code = int(request.form["code"])
-    new_password = request.form["new_password"]
 
-    data = otp_store.get(email)
+    otp = random.randint(100000, 999999)
+    otp_store[email] = {"otp": otp, "time": datetime.now()}
 
-    if not data:
-        return "Invalid OTP ❌"
+    try:
+        msg = Message(
+            "OTP Code",
+            sender=app.config["MAIL_USERNAME"],
+            recipients=[email]
+        )
+        msg.body = f"Your OTP is: {otp}"
+        mail.send(msg)
 
-    if datetime.now() - data["time"] > timedelta(minutes=5):
-        return "OTP expired ❌"
+    except Exception as e:
+        print("EMAIL ERROR:", e)
 
-    if data["otp"] == code:
-        db = get_db()
-        cursor = db.cursor()
-
-        cursor.execute("""
-            UPDATE teachers
-            SET password=%s
-            WHERE email=%s
-        """, (generate_password_hash(new_password), email))
-
-        db.commit()
-        db.close()
-
-        otp_store.pop(email)
-
-        return redirect("/")
-
-    return "Wrong OTP ❌"
-
+    return render_template("enter_code.html", email=email)
 # ================= LOGOUT =================
 @app.route("/logout")
 def logout():
