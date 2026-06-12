@@ -62,23 +62,41 @@ def save_register():
         db = get_db()
         cursor = db.cursor()
 
-        cursor.execute("""
-    INSERT INTO attendance(username, teacher_name, subject, checkin_time, status)
-    VALUES (%s,%s,%s,%s,%s)
-""", (username, teacher["full_name"], teacher["subject"], now, status))
-        if existing:
-            return render_template("register.html", msg="Username already exists ❌")
+        # Check username
+        cursor.execute(
+            "SELECT * FROM teachers WHERE username=%s",
+            (username,)
+        )
+        existing = cursor.fetchone()
 
-       
+        if existing:
+            db.close()
+            return render_template(
+                "register.html",
+                msg="Username already exists ❌"
+            )
+
+        # Save teacher
+        cursor.execute("""
+            INSERT INTO teachers
+            (full_name, username, password, subject, email)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (fullname, username, password, subject, email))
+
         db.commit()
         db.close()
 
-        # 👉 SHOW SUCCESS PAGE (REGISTER PAGE ITSELF)
-        return render_template("register.html", success="Account created successfully ✅")
+        return render_template(
+            "register.html",
+            success="Account created successfully ✅"
+        )
 
     except Exception as e:
-        print("ERROR:", e)
-        return render_template("register.html", msg="Something went wrong ❌")
+        print("REGISTER ERROR:", e)
+        return render_template(
+            "register.html",
+            msg=f"Error: {e}"
+        )
         #================== LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
