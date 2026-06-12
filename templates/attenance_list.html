@@ -1,0 +1,19 @@
+<h4 class="mt-4">Attendance Records</h4>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Name</th>
+        <th>Subject</th>
+        <th>Time</th>
+        <th>Status</th>
+    </tr>
+
+    {% for r in records %}
+    <tr>
+        <td>{{ r.teacher_name }}</td>
+        <td>{{ r.subject }}</td>
+        <td>{{ r.checkin_time }}</td>
+        <td>{{ r.status }}</td>
+    </tr>
+    {% endfor %}
+</table>

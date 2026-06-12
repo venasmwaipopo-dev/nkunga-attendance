@@ -17,3 +17,8 @@
     </tr>
     {% endfor %}
 </table>
+{% if msg %}
+    <div class="alert alert-success text-center">
+        {{ msg }}
+    </div>
+{% endif %}

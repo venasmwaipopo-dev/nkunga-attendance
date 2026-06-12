@@ -1,10 +1,91 @@
-<form method="POST" action="/verify_code">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enter OTP</title>
 
-    <input type="hidden" name="email" value="{{ email }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+        }
 
-    <input type="text" name="code" placeholder="Enter OTP" required>
-    <input type="password" name="new_password" placeholder="New Password" required>
+        .container {
+            width: 350px;
+            margin: 100px auto;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
 
-    <button type="submit">Reset Password</button>
+        h2 {
+            text-align: center;
+        }
 
-</form>
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .small {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .small a {
+            color: #007bff;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>Verify OTP</h2>
+
+    <p style="text-align:center; font-size:13px;">
+        Enter the OTP sent to your email and set a new password.
+    </p>
+
+    <!-- OTP FORM -->
+    <form method="POST" action="/verify_code">
+
+        <!-- hidden email passed from Flask -->
+        <input type="hidden" name="email" value="{{ email }}">
+
+        <input type="text" name="code" placeholder="Enter OTP code" required>
+
+        <input type="password" name="new_password" placeholder="New password" required>
+
+        <button type="submit">Reset Password</button>
+    </form>
+
+    <div class="small">
+        Didn’t receive OTP?
+        <a href="/resend_otp">Resend</a>
+    </div>
+</div>
+
+</body>
+</html>

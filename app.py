@@ -1,21 +1,34 @@
 from flask import Flask, render_template, request, redirect, session
-from datetime import datetime
-import mysql.connector
+from datetime import datetime, timedelta
+import pymysql
 from flask_mail import Mail, Message
 import random
 import os
 import urllib.parse
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 
+# ================= INIT =================
+app = Flask(__name__)
 load_dotenv()
 
-app = Flask(__name__)
-app.secret_key = "your_secret_key"
+app.secret_key = os.getenv("SECRET_KEY", "dev_secret")
 
-print("🚀 APP STARTING...")
-print("DB URL =", os.getenv("MYSQL_PUBLIC_URL"))
+# ================= DB =================
+def get_db():
+    url = urllib.parse.urlparse(os.getenv("MYSQL_PUBLIC_URL"))
 
-# ================= EMAIL CONFIG =================
+    return pymysql.connect(
+        host=url.hostname,
+        user=url.username,
+        password=url.password,
+        database=url.path.replace("/", ""),
+        port=int(url.port),
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=False
+    )
+
+# ================= MAIL =================
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -26,88 +39,159 @@ mail = Mail(app)
 
 otp_store = {}
 
-# ================= DATABASE CONNECTION =================
-db_url = os.getenv("MYSQL_PUBLIC_URL")
-
-if not db_url:
-    raise Exception("MYSQL_PUBLIC_URL missing ❌")
-
-url = urllib.parse.urlparse(db_url)
-db = mysql.connector.connect(
-    host=url.hostname,
-    user=url.username,
-    password=url.password,
-    database=url.path.lstrip("/"),
-    port=url.port,
-    connection_timeout=30
-)
-
-cursor = db.cursor(buffered=True)
-
-print("✅ DATABASE CONNECTED SUCCESSFULLY")
 # ================= HOME =================
 @app.route("/")
 def home():
     return render_template("login.html")
 
-
-# ================= LOGIN =================
-@app.route("/login", methods=["POST"])
-def login():
-
-    if cursor is None:
-        return "Database not connected ❌"
-
-    try:
-        username = request.form["username"]
-        password = request.form["password"]
-
-        cursor.execute(
-            "SELECT * FROM teachers WHERE username=%s AND password=%s",
-            (username, password)
-        )
-
-        user = cursor.fetchone()
-
-        if user:
-            session["username"] = username
-            return redirect("/dashboard")
-
-        return "Wrong username or password ❌"
-
-    except Exception as e:
-        return f"LOGIN ERROR: {e}"
-
-# ================= REGISTER =================
-@app.route("/register")
-def register():
+# ================= REGISTER PAGE =================
+@app.route("/create_teacher_account")
+def create_teacher_account():
     return render_template("register.html")
 
-
+# ================= REGISTER SAVE (FIXED) =================
 @app.route("/save_register", methods=["POST"])
 def save_register():
-    if cursor is None:
-        return "Database not connected ❌"
+    try:
+        fullname = request.form["fullname"]
+        username = request.form["username"].strip().lower()
+        password = generate_password_hash(request.form["password"])
+        subject = request.form["subject"]
+        email = request.form["email"]
 
-    fullname = request.form["fullname"]
-    username = request.form["username"]
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+    INSERT INTO attendance(username, teacher_name, subject, checkin_time, status)
+    VALUES (%s,%s,%s,%s,%s)
+""", (username, teacher["full_name"], teacher["subject"], now, status))
+        if existing:
+            return render_template("register.html", msg="Username already exists ❌")
+
+       
+        db.commit()
+        db.close()
+
+        # 👉 SHOW SUCCESS PAGE (REGISTER PAGE ITSELF)
+        return render_template("register.html", success="Account created successfully ✅")
+
+    except Exception as e:
+        print("ERROR:", e)
+        return render_template("register.html", msg="Something went wrong ❌")
+        #================== LOGIN =================
+@app.route("/login", methods=["POST"])
+def login():
+    db = get_db()
+    cursor = db.cursor()
+
+    username = request.form["username"].strip().lower()
     password = request.form["password"]
-    subject = request.form["subject"]
-    email = request.form["email"]
 
     cursor.execute("SELECT * FROM teachers WHERE username=%s", (username,))
-    if cursor.fetchone():
-        return "Username already exists ❌"
+    user = cursor.fetchone()
 
+    db.close()
+
+    # user check
+    if not user:
+        return "User not found ❌"
+
+    # password check (IMPORTANT FIX)
+    if check_password_hash(user["password"], password):
+        session["username"] = username
+        return redirect("/dashboard")
+
+    return "Password mismatch ❌"
+# ================= DASHBOARD =================
+@app.route("/dashboard")
+def dashboard():
+    if "username" not in session:
+        return redirect("/")
+
+    db = get_db()
+    cursor = db.cursor()
+
+    # get user info
+    cursor.execute(
+        "SELECT * FROM teachers WHERE username=%s",
+        (session["username"],)
+    )
+    user = cursor.fetchone()
+
+    # get attendance records
     cursor.execute("""
-        INSERT INTO teachers(full_name, username, password, subject, email)
-        VALUES(%s,%s,%s,%s,%s)
-    """, (fullname, username, password, subject, email))
+        SELECT teacher_name, subject, checkin_time, status
+        FROM attendance
+        ORDER BY checkin_time DESC
+    """)
+    records = cursor.fetchall()
+
+    # check if already checked in today
+    cursor.execute("""
+        SELECT * FROM attendance
+        WHERE username=%s AND DATE(checkin_time)=CURDATE()
+    """, (session["username"],))
+
+    today_checkin = cursor.fetchone()
+
+    db.close()
+
+    return render_template(
+        "dashboard.html",
+        user=user,
+        records=records,
+        msg=session.pop("msg", None),
+        checked=today_checkin
+    )
+# ================= CHECKIN =================
+
+@app.route("/checkin", methods=["POST"])
+def checkin():
+    if "username" not in session:
+        return redirect("/")
+
+    db = get_db()
+    cursor = db.cursor()
+
+    username = session["username"]
+    today = datetime.now().date()
+    now = datetime.now()
+
+    # 🔥 CHECK IF ALREADY CHECKED IN TODAY
+    cursor.execute("""
+        SELECT * FROM attendance
+        WHERE username=%s AND DATE(checkin_time)=%s
+    """, (username, today))
+
+    already = cursor.fetchone()
+
+    if already:
+        session["msg"] = "You already checked in today ❌"
+        return redirect("/dashboard")
+
+    # get teacher
+    cursor.execute("SELECT * FROM teachers WHERE username=%s", (username,))
+    teacher = cursor.fetchone()
+
+    school_time = datetime.strptime("07:30:00", "%H:%M:%S").time()
+    school_dt = datetime.combine(today, school_time)
+
+    diff = int((now - school_dt).total_seconds() / 60)
+    status = f"Late {diff} mins" if diff > 0 else f"Early {abs(diff)} mins"
+
+    # insert attendance
+    cursor.execute("""
+        INSERT INTO attendance(username, teacher_name, subject, checkin_time, status)
+        VALUES (%s,%s,%s,%s,%s)
+    """, (username, teacher["full_name"], teacher["subject"], now, status))
 
     db.commit()
-    return "Registered successfully ✅"
+    db.close()
 
+    session["msg"] = f"Check-in successful ✅ ({teacher['full_name']})"
 
+    return redirect("/dashboard")
 # ================= FORGOT PASSWORD =================
 @app.route("/forgot_password")
 def forgot_password():
@@ -115,115 +199,52 @@ def forgot_password():
 
 @app.route("/send_code", methods=["POST"])
 def send_code():
-    return "OTP temporarily disabled ✅"
     email = request.form["email"]
-
     otp = random.randint(100000, 999999)
-    otp_store[email] = otp
 
-    msg = Message(
-        "OTP Code",
-        sender=app.config['MAIL_USERNAME'],
-        recipients=[email]
-    )
+    otp_store[email] = {"otp": otp, "time": datetime.now()}
 
-    msg.body = f"Your OTP code is: {otp}"
+    msg = Message("OTP Code",
+                  sender=app.config["MAIL_USERNAME"],
+                  recipients=[email])
+    msg.body = f"Your OTP is: {otp}"
     mail.send(msg)
 
     return render_template("enter_code.html", email=email)
 
-
+# ================= VERIFY OTP =================
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
     email = request.form["email"]
-    code = request.form["code"]
+    code = int(request.form["code"])
     new_password = request.form["new_password"]
 
-    if email in otp_store and otp_store[email] == int(code):
+    data = otp_store.get(email)
 
-        cursor.execute(
-            "UPDATE teachers SET password=%s WHERE email=%s",
-            (new_password, email)
-        )
+    if not data:
+        return "Invalid OTP ❌"
+
+    if datetime.now() - data["time"] > timedelta(minutes=5):
+        return "OTP expired ❌"
+
+    if data["otp"] == code:
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            UPDATE teachers
+            SET password=%s
+            WHERE email=%s
+        """, (generate_password_hash(new_password), email))
+
         db.commit()
+        db.close()
 
-        otp_store.pop(email, None)
-        return "Password reset successful ✔️"
+        otp_store.pop(email)
 
-    return "Invalid OTP ❌"
-
-
-# ================= DASHBOARD =================
-@app.route("/dashboard")
-def dashboard():
-
-    if "username" not in session:
         return redirect("/")
 
-    username = session["username"]
-
-    cursor.execute("""
-        SELECT full_name, subject
-        FROM teachers
-        WHERE username=%s
-    """, (username,))
-    user = cursor.fetchone()
-
-    cursor.execute("""
-        SELECT teacher_name, subject, checkin_time, status
-        FROM attendance
-        WHERE username=%s
-        ORDER BY checkin_time DESC
-    """, (username,))
-    records = cursor.fetchall()
-
-    return render_template("dashboard.html", user=user, records=records)
-
-
-# ================= CHECKIN =================
-@app.route("/checkin", methods=["POST"])
-def checkin():
-
-    if "username" not in session:
-        return redirect("/")
-
-    username = session["username"]
-    today = datetime.now().date()
-
-    cursor.execute("""
-        SELECT * FROM attendance
-        WHERE username=%s AND DATE(checkin_time)=%s
-    """, (username, today))
-
-    if cursor.fetchone():
-        return "Already checked in today ❌"
-
-    cursor.execute("""
-        SELECT full_name, subject
-        FROM teachers
-        WHERE username=%s
-    """, (username,))
-    teacher = cursor.fetchone()
-
-    now = datetime.now()
-
-    school_time = datetime.strptime("07:30:00", "%H:%M:%S")
-    current_time = datetime.strptime(now.strftime("%H:%M:%S"), "%H:%M:%S")
-
-    diff = int((school_time - current_time).total_seconds() / 60)
-
-    status = f"Earlier for {diff} mins" if diff >= 0 else f"Late for {abs(diff)} mins"
-
-    cursor.execute("""
-        INSERT INTO attendance
-        (username, teacher_name, subject, checkin_time, status)
-        VALUES (%s,%s,%s,%s,%s)
-    """, (username, teacher[0], teacher[1], now, status))
-
-    db.commit()
-
-    return redirect("/dashboard")
-
+    return "Wrong OTP ❌"
 
 # ================= LOGOUT =================
 @app.route("/logout")
@@ -231,15 +252,6 @@ def logout():
     session.pop("username", None)
     return redirect("/")
 
-
-# ================= ERROR HANDLER =================
-@app.errorhandler(500)
-def internal_error(e):
-    print("❌ INTERNAL ERROR")
-    return "Internal Server Error - check logs", 500
-
-
 # ================= RUN =================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=10000)

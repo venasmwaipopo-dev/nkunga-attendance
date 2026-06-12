@@ -1,0 +1,15 @@
+@app.route("/save_register", methods=["POST"])
+def save_register():
+    db = get_db()
+    cursor = db.cursor()
+
+    fullname = request.form["fullname"]
+    username = request.form["username"]
+
+    print("➡️ USERNAME RECEIVED:", repr(username))
+
+    cursor.execute("SELECT * FROM teachers")
+    all_users = cursor.fetchall()
+    print("➡️ ALL USERS IN DB:", all_users)
+
+    return "TEST DONE"

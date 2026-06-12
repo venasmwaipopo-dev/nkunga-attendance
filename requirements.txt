@@ -1,4 +1,6 @@
-Flask
-mysql-connector-python
-gunicorn
-Flask-Mail
+Flask==3.0.3
+pymysql==1.1.1
+python-dotenv==1.0.1
+Flask-Mail==0.9.1
+Werkzeug==3.0.3
+gunicorn==21.2.0

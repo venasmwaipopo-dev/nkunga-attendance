@@ -1,10 +1,28 @@
-<form method="POST" action="/verify_code">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Enter OTP</title>
+</head>
+<body>
 
-    <input type="hidden" name="email" value="{{ email }}">
+  <div style="text-align:center; margin-top:100px;">
 
-    <input type="text" name="code" placeholder="Enter OTP" required>
-    <input type="password" name="new_password" placeholder="New Password" required>
+    <h2>Enter OTP</h2>
 
-    <button type="submit">Reset Password</button>
+    <form method="POST" action="/verify_code">
 
-</form>
+      <input type="hidden" name="email" value="{{ email }}">
+
+      <input type="text" name="code" placeholder="OTP Code" required><br><br>
+
+      <input type="password" name="new_password" placeholder="New Password" required><br><br>
+
+      <button type="submit">Reset Password</button>
+
+    </form>
+
+  </div>
+
+</body>
+</html>
