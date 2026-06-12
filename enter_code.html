@@ -1,3 +1,7 @@
+<div class="alert alert-info text-center">
+    OTP sent successfully ✅ <br>
+    Valid for <span id="timer">02:00</span>
+</div>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -26,3 +30,28 @@
 
 </body>
 </html>
+<script>
+let time = 120;
+
+const timer = setInterval(function () {
+
+    let minutes = Math.floor(time / 60);
+    let seconds = time % 60;
+
+    minutes = minutes < 10 ? "0" + minutes : minutes;
+    seconds = seconds < 10 ? "0" + seconds : seconds;
+
+    document.getElementById("timer").innerHTML =
+        minutes + ":" + seconds;
+
+    time--;
+
+    if (time < 0) {
+        clearInterval(timer);
+
+        document.getElementById("timer").innerHTML =
+            "OTP EXPIRED ❌";
+    }
+
+}, 1000);
+</script>

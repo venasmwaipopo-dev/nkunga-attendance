@@ -211,26 +211,79 @@ def checkin():
 
     return redirect("/dashboard")
 # ================= FORGOT PASSWORD =================
+# ================= FORGOT PASSWORD =================
 @app.route("/forgot_password")
 def forgot_password():
     return render_template("forgot_password.html")
 
 
+# ================= SEND OTP =================
 @app.route("/send_code", methods=["POST"])
 def send_code():
-    email = request.form["email"]
+
+    email = request.form["email"].strip()
+
+    db = get_db()
+    cursor = db.cursor()
+
+    # Hakikisha email ipo kwenye mfumo
+    cursor.execute(
+        "SELECT * FROM teachers WHERE email=%s",
+        (email,)
+    )
+
+    user = cursor.fetchone()
+
+    db.close()
+
+    if not user:
+        return "Email not found ❌"
 
     otp = random.randint(100000, 999999)
-    otp_store[email] = {"otp": otp, "time": datetime.now()}
 
-    print("OTP FOR DEBUG:", otp)  # unaweza kuona Render logs
+    otp_store[email] = {
+        "otp": otp,
+        "time": datetime.now()
+    }
 
-    return render_template("enter_code.html", email=email)
+    try:
+        msg = Message(
+            "NKUNGA Attendance OTP",
+            sender=app.config["MAIL_USERNAME"],
+            recipients=[email]
+        )
+
+        msg.body = f"""
+Hello {user['full_name']},
+
+Your OTP Code is:
+
+{otp}
+
+This code is valid for 5 minutes.
+
+Do not share it with anyone.
+"""
+
+        mail.send(msg)
+
+    except Exception as e:
+        print("EMAIL ERROR:", e)
+        return f"Email sending failed ❌ {e}"
+
+    return render_template(
+        "enter_code.html",
+        email=email,
+        otp_sent=True
+    )
+
+
 # ================= VERIFY OTP =================
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
-    email = request.form["email"]
-    code = int(request.form["code"])
+
+    email = request.form["email"].strip()
+    code = request.form["code"].strip()
     new_password = request.form["new_password"]
 
     data = otp_store.get(email)
@@ -238,41 +291,34 @@ def verify_code():
     if not data:
         return "Invalid OTP ❌"
 
+    # OTP valid for 5 minutes
     if datetime.now() - data["time"] > timedelta(minutes=5):
+        otp_store.pop(email, None)
         return "OTP expired ❌"
 
-    if data["otp"] == code:
-        db = get_db()
-        cursor = db.cursor()
+    if str(data["otp"]) != code:
+        return "Wrong OTP ❌"
 
-        cursor.execute("""
-            UPDATE teachers
-            SET password=%s
-            WHERE email=%s
-        """, (generate_password_hash(new_password), email))
+    db = get_db()
+    cursor = db.cursor()
 
-        db.commit()
-        db.close()
+    cursor.execute(
+        """
+        UPDATE teachers
+        SET password=%s
+        WHERE email=%s
+        """,
+        (generate_password_hash(new_password), email)
+    )
 
-        otp_store.pop(email)
+    db.commit()
+    db.close()
 
-        return redirect("/")
+    otp_store.pop(email, None)
 
-    return "Wrong OTP ❌"
-
-    try:
-        msg = Message(
-            "OTP Code",
-            sender=app.config["MAIL_USERNAME"],
-            recipients=[email]
-        )
-        msg.body = f"Your OTP is: {otp}"
-        mail.send(msg)
-
-    except Exception as e:
-        print("EMAIL ERROR:", e)
-
-    return render_template("enter_code.html", email=email)
+    return render_template(
+        "reset_success.html"
+    )
 # ================= LOGOUT =================
 @app.route("/logout")
 def logout():
