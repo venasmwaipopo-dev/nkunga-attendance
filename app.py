@@ -226,7 +226,6 @@ def send_code():
     db = get_db()
     cursor = db.cursor()
 
-    # Hakikisha email ipo kwenye mfumo
     cursor.execute(
         "SELECT * FROM teachers WHERE email=%s",
         (email,)
@@ -246,38 +245,33 @@ def send_code():
         "time": datetime.now()
     }
 
+    print("================================")
+    print("SENDING OTP TO:", email)
+    print("OTP:", otp)
+
     try:
         msg = Message(
             "NKUNGA Attendance OTP",
-            sender=app.config["MAIL_USERNAME"],
             recipients=[email]
         )
 
         msg.body = f"""
 Hello {user['full_name']},
 
-Your OTP Code is: {otp}
+Your OTP Code is:
+
+{otp}
 
 This code is valid for 5 minutes.
-
-Do not share it with anyone.
-
-NKUNGA Secondary School
-Teachers Attendance System
 """
-
-        print("================================")
-        print("SENDING OTP TO:", email)
-        print("OTP:", otp)
 
         mail.send(msg)
 
         print("OTP SENT SUCCESSFULLY")
-        print("================================")
 
     except Exception as e:
-        print("EMAIL ERROR:", e)
-        return f"Email sending failed ❌ {e}"
+        print("EMAIL ERROR:", str(e))
+        return f"EMAIL ERROR ❌ {e}"
 
     return render_template(
         "enter_code.html",
