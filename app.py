@@ -277,7 +277,14 @@ Do not share it with anyone.
         otp_sent=True
     )
 
+print("Sending OTP to:", email)
+print("OTP:", otp)
 
+mail.send(msg)
+
+print("OTP sent successfully")
+print("OTP SENT TO:", email)
+print("OTP:", otp)
 # ================= VERIFY OTP =================
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
