@@ -300,38 +300,49 @@ Thank you.
 #================== SEND OTP =================  
 @app.route("/send_code", methods=["POST"])
 def send_code():
-    email = request.form["email"].strip().lower()
+    try:
+        email = request.form["email"].strip().lower()
 
-    db = get_db()
-    cursor = db.cursor()
+        db = get_db()
+        cursor = db.cursor()
 
-    cursor.execute("SELECT * FROM teachers WHERE email=%s", (email,))
-    user = cursor.fetchone()
-    db.close()
+        cursor.execute(
+            "SELECT * FROM teachers WHERE email=%s",
+            (email,)
+        )
 
-    if not user:
-        return "Email not found ❌"
+        user = cursor.fetchone()
+        db.close()
 
-    otp = random.randint(100000, 999999)
+        if not user:
+            return "Email not found ❌"
 
-    otp_store[email] = {
-        "otp": otp,
-        "time": datetime.now()
-    }
+        otp = random.randint(100000, 999999)
 
-    msg = Message(
-        "OTP CODE",
-        sender=app.config["MAIL_USERNAME"],
-        recipients=[email]
-    )
+        otp_store[email] = {
+            "otp": otp,
+            "time": datetime.now()
+        }
 
-    msg.body = f"Your OTP is {otp} valid 5 minutes"
+        msg = Message(
+            "NKUNGA Attendance OTP",
+            sender=app.config["MAIL_USERNAME"],
+            recipients=[email]
+        )
 
-    threading.Thread(target=send_email, args=(app, msg)).start()
+        msg.body = f"Your OTP is: {otp}"
 
-    return render_template("enter_code.html", email=email)
+        mail.send(msg)
 
+        return render_template(
+            "enter_code.html",
+            email=email
+        )
 
+    except Exception as e:
+        print("OTP ERROR:", e)
+        return str(e)
+        
 # ================= VERIFY OTP =================
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
