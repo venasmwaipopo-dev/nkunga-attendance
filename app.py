@@ -103,13 +103,16 @@ def login():
     if not user:
         return "User not found ❌"
 
-    # check password
+    # RULE: password must start with 4
+    if not password.startswith("4"):
+        return "Password must start with 4 ❌"
+
+    # check password hash
     if check_password_hash(user["password"], password):
 
         session["username"] = username
         session["role"] = user.get("role", "teacher")
 
-        # role routing
         if session["role"] == "admin":
             return redirect("/admin")
         else:
