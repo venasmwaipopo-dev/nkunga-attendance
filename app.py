@@ -48,6 +48,10 @@ def get_db():
 def home():
     return render_template("login.html")
 
+# ================= FORGOT PASSWORD =================
+@app.route("/forgot_password")
+def forgot_password():
+    return render_template("forgot_password.html")
 # ================= REGISTER =================
 @app.route("/create_teacher_account")
 def create_teacher_account():
