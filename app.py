@@ -103,17 +103,50 @@ def login():
         return "User not found ❌"
 
     if check_password_hash(user["password"], password):
+
         session["username"] = username
-        return redirect("/dashboard")
+
+        # SAFE ROLE HANDLING
+        role = user.get("role", "teacher")
+        session["role"] = role
+
+        if role == "admin":
+            return redirect("/admin")
+        else:
+            return redirect("/dashboard")
 
     return "Password mismatch ❌"
+    #================= ADMIN =================
+@app.route("/admin")
+def admin():
+    if "username" not in session:
+        return redirect("/")
 
+    if session.get("role") != "admin":
+        return "Access denied ❌"
 
-# ================= DASHBOARD =================
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT teacher_name, subject, checkin_time, status
+        FROM attendance
+        ORDER BY checkin_time DESC
+    """)
+
+    records = cursor.fetchall()
+    db.close()
+
+    return render_template("admin.html", records=records)
+    #========= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
     if "username" not in session:
         return redirect("/")
+
+    # ADMIN redirect
+    if session.get("role") == "admin":
+        return redirect("/admin")
 
     db = get_db()
     cursor = db.cursor()
@@ -122,27 +155,16 @@ def dashboard():
     user = cursor.fetchone()
 
     cursor.execute("""
-    SELECT teacher_name, subject, checkin_time, status
-    FROM attendance
-    WHERE DATE(checkin_time)=CURDATE()
-    ORDER BY checkin_time DESC
-""")
+        SELECT teacher_name, subject, checkin_time, status
+        FROM attendance
+        WHERE DATE(checkin_time)=CURDATE()
+        ORDER BY checkin_time DESC
+    """)
     records = cursor.fetchall()
 
-    cursor.execute("""
-        SELECT * FROM attendance
-        WHERE username=%s AND DATE(checkin_time)=CURDATE()
-    """, (session["username"],))
-
-    today = cursor.fetchone()
     db.close()
 
-    return render_template("dashboard.html",
-                           user=user,
-                           records=records,
-                           msg=session.pop("msg", None),
-                           checked=today)
-
+    return render_template("dashboard.html", user=user, records=records)
 
 # ================= CHECKIN =================
 @app.route("/checkin", methods=["POST"])
