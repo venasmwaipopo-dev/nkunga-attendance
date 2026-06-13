@@ -57,7 +57,7 @@ def forgot_password():
 def create_teacher_account():
     return render_template("register.html")
 
-
+#================== SAVE REGISTER =================
 @app.route("/save_register", methods=["POST"])
 def save_register():
     fullname = request.form["fullname"]
@@ -122,10 +122,11 @@ def dashboard():
     user = cursor.fetchone()
 
     cursor.execute("""
-        SELECT teacher_name, subject, checkin_time, status
-        FROM attendance
-        ORDER BY checkin_time DESC
-    """)
+    SELECT teacher_name, subject, checkin_time, status
+    FROM attendance
+    WHERE DATE(checkin_time)=CURDATE()
+    ORDER BY checkin_time DESC
+""")
     records = cursor.fetchall()
 
     cursor.execute("""
@@ -156,6 +157,7 @@ def checkin():
     today = datetime.now().date()
     now = datetime.now()
 
+    # check if already checked in today
     cursor.execute("""
         SELECT * FROM attendance
         WHERE username=%s AND DATE(checkin_time)=%s
@@ -165,15 +167,27 @@ def checkin():
         session["msg"] = "Already checked in ❌"
         return redirect("/dashboard")
 
+    # get teacher
     cursor.execute("SELECT * FROM teachers WHERE username=%s", (username,))
     teacher = cursor.fetchone()
 
+    # school time
     school_time = datetime.strptime("07:30:00", "%H:%M:%S").time()
     school_dt = datetime.combine(today, school_time)
 
-    diff = int((now - school_dt).total_seconds() / 60)
-    status = f"Late {diff} mins" if diff > 0 else f"Early {abs(diff)} mins"
+    # difference in minutes
+    diff_minutes = int((now - school_dt).total_seconds() / 60)
 
+    hours = abs(diff_minutes) // 60
+    minutes = abs(diff_minutes) % 60
+
+    # status
+    if diff_minutes > 0:
+        status = f"Late {hours} hrs {minutes} mins"
+    else:
+        status = f"Early {hours} hrs {minutes} mins"
+
+    # insert attendance
     cursor.execute("""
         INSERT INTO attendance(username, teacher_name, subject, checkin_time, status)
         VALUES (%s,%s,%s,%s,%s)
@@ -185,8 +199,6 @@ def checkin():
     session["msg"] = f"Check-in successful ✅ {teacher['full_name']}"
 
     return redirect("/dashboard")
-
-
 # ================= OTP EMAIL =================
 def send_email(app, msg):
     with app.app_context():
