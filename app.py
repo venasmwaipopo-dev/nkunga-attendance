@@ -99,22 +99,24 @@ def login():
 
     db.close()
 
-    # check user exists
     if not user:
         return "User not found ❌"
 
-    # check password (hashed)
-    if check_password_hash(user["password"], password):
-        session["username"] = username
-        session["role"] = user.get("role", "teacher")
+    if not check_password_hash(user["password"], password):
+        return "Password mismatch ❌"
 
-        # redirect based on role
-        if session["role"] == "admin":
-            return redirect("/admin")
-        else:
-            return redirect("/dashboard")
+    session["username"] = username
 
-    return "Password mismatch ❌"
+    # SAFE ROLE HANDLING
+    role = user["role"] if user.get("role") else "teacher"
+    session["role"] = role
+
+    print("LOGIN ROLE:", role)
+
+    if role == "admin":
+        return redirect("/admin")
+
+    return redirect("/dashboard")
     #================= ADMIN =================
 @app.route("/admin")
 def admin():
@@ -342,7 +344,7 @@ def send_code():
     except Exception as e:
         print("OTP ERROR:", e)
         return str(e)
-        
+
 # ================= VERIFY OTP =================
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
