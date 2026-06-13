@@ -99,18 +99,18 @@ def login():
 
     db.close()
 
+    # check user exists
     if not user:
         return "User not found ❌"
 
+    # check password
     if check_password_hash(user["password"], password):
 
         session["username"] = username
+        session["role"] = user.get("role", "teacher")
 
-        # SAFE ROLE HANDLING
-        role = user.get("role", "teacher")
-        session["role"] = role
-
-        if role == "admin":
+        # role routing
+        if session["role"] == "admin":
             return redirect("/admin")
         else:
             return redirect("/dashboard")
@@ -128,16 +128,25 @@ def admin():
     db = get_db()
     cursor = db.cursor()
 
+    # teachers list
+    cursor.execute("SELECT * FROM teachers")
+    teachers = cursor.fetchall()
+
+    # attendance records
     cursor.execute("""
         SELECT teacher_name, subject, checkin_time, status
         FROM attendance
         ORDER BY checkin_time DESC
     """)
+    attendance = cursor.fetchall()
 
-    records = cursor.fetchall()
     db.close()
 
-    return render_template("admin.html", records=records)
+    return render_template(
+        "admin.html",
+        teachers=teachers,
+        attendance=attendance
+    )
     #========= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
