@@ -67,7 +67,7 @@
 </div>
 
 {% if msg %}
-<div class="alert alert-success text-center">
+<div class="alert alert-info text-center">
     {{ msg }}
 </div>
 {% endif %}
@@ -76,19 +76,22 @@
     Welcome, {{ user.full_name }} 👋
 </div>
 
+<!-- ================= CHECK-IN ================= -->
 <form action="/checkin" method="POST">
 
     {% if checked %}
-        <button class="btn btn-secondary checkin-btn" disabled>
+        <button type="button" class="btn btn-secondary checkin-btn" disabled>
             ✅ Already Checked In Today
         </button>
     {% else %}
-        <button class="btn btn-primary checkin-btn">
+        <button type="submit" class="btn btn-primary checkin-btn">
             📍 Check In
         </button>
     {% endif %}
 
 </form>
+
+<!-- ================= RECORDS ================= -->
 <div class="card-box">
 
     <table class="table table-striped">

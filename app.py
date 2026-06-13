@@ -103,16 +103,12 @@ def login():
     if not user:
         return "User not found ❌"
 
-    # RULE: password must start with 4
-    if not password.startswith("4"):
-        return "Password must start with 4 ❌"
-
-    # check password hash
+    # check password (hashed)
     if check_password_hash(user["password"], password):
-
         session["username"] = username
         session["role"] = user.get("role", "teacher")
 
+        # redirect based on role
         if session["role"] == "admin":
             return redirect("/admin")
         else:
@@ -163,9 +159,13 @@ def dashboard():
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("SELECT * FROM teachers WHERE username=%s", (session["username"],))
+    username = session["username"]
+
+    # get user info
+    cursor.execute("SELECT * FROM teachers WHERE username=%s", (username,))
     user = cursor.fetchone()
 
+    # today's attendance records
     cursor.execute("""
         SELECT teacher_name, subject, checkin_time, status
         FROM attendance
@@ -174,71 +174,130 @@ def dashboard():
     """)
     records = cursor.fetchall()
 
+    # check if already checked in today
+    cursor.execute("""
+        SELECT id FROM attendance
+        WHERE username=%s AND DATE(checkin_time)=CURDATE()
+    """, (username,))
+
+    checked = cursor.fetchone()
+
     db.close()
 
-    return render_template("dashboard.html", user=user, records=records)
+    return render_template(
+    "dashboard.html",
+    user=user,
+    records=records,
+    checked=checked,
+    msg=session.pop("msg", None)
+)
 
-# ================= CHECKIN =================
+   #============= CHECKIN =================
 @app.route("/checkin", methods=["POST"])
 def checkin():
     if "username" not in session:
         return redirect("/")
 
+    username = session["username"]
+    now = datetime.now()
+    today = now.date()
+
     db = get_db()
     cursor = db.cursor()
 
-    username = session["username"]
-    today = datetime.now().date()
-    now = datetime.now()
+    try:
+        cursor.execute("""
+            SELECT id FROM attendance
+            WHERE username=%s AND DATE(checkin_time)=CURDATE()
+        """, (username,))
 
-    # check if already checked in today
-    cursor.execute("""
-        SELECT * FROM attendance
-        WHERE username=%s AND DATE(checkin_time)=%s
-    """, (username, today))
+        if cursor.fetchone():
+            db.close()
+            session["msg"] = "⚠️ Tayari umesha Check In leo"
+            return redirect("/dashboard")
 
-    if cursor.fetchone():
-        session["msg"] = "Already checked in ❌"
+        cursor.execute(
+            "SELECT * FROM teachers WHERE username=%s",
+            (username,)
+        )
+        teacher = cursor.fetchone()
+
+        if not teacher:
+            db.close()
+            return "Teacher not found ❌"
+
+        school_dt = datetime.combine(
+            today,
+            datetime.strptime("07:30:00", "%H:%M:%S").time()
+        )
+
+        diff = int((now - school_dt).total_seconds() / 60)
+
+        hours = abs(diff) // 60
+        minutes = abs(diff) % 60
+
+        if diff > 0:
+            status = f"Late {hours} hrs {minutes} mins"
+        else:
+            status = f"Early {hours} hrs {minutes} mins"
+
+        cursor.execute("""
+            INSERT INTO attendance
+            (username, teacher_name, subject, checkin_time, status)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (
+            username,
+            teacher["full_name"],
+            teacher["subject"],
+            now,
+            status
+        ))
+
+        db.commit()
+        db.close()
+
+        session["msg"] = "✅ Check In successful"
+
         return redirect("/dashboard")
 
-    # get teacher
-    cursor.execute("SELECT * FROM teachers WHERE username=%s", (username,))
-    teacher = cursor.fetchone()
+    except Exception as e:
+        print("CHECKIN ERROR:", e)
+        return str(e)
+    # ================= OTP EMAIL AFTER CHECKIN =================
+    otp = random.randint(100000, 999999)
 
-    # school time
-    school_time = datetime.strptime("07:30:00", "%H:%M:%S").time()
-    school_dt = datetime.combine(today, school_time)
+    msg = Message(
+        "Check-in Confirmation OTP",
+        recipients=[teacher["email"]]
+    )
 
-    # difference in minutes
-    diff_minutes = int((now - school_dt).total_seconds() / 60)
+    msg.body = f"""
+Hello {teacher['full_name']},
 
-    hours = abs(diff_minutes) // 60
-    minutes = abs(diff_minutes) % 60
+You have successfully checked in.
 
-    # status
-    if diff_minutes > 0:
-        status = f"Late {hours} hrs {minutes} mins"
-    else:
-        status = f"Early {hours} hrs {minutes} mins"
+Time: {now}
+Status: {status}
 
-    # insert attendance
-    cursor.execute("""
-        INSERT INTO attendance(username, teacher_name, subject, checkin_time, status)
-        VALUES (%s,%s,%s,%s,%s)
-    """, (username, teacher["full_name"], teacher["subject"], now, status))
+Your confirmation OTP is: {otp}
 
-    db.commit()
+Thank you.
+"""
+
+    # async email (fast, no lag)
+    import threading
+
+    def send_mail(app, msg):
+        with app.app_context():
+            mail.send(msg)
+
+    threading.Thread(target=send_mail, args=(app, msg)).start()
+
     db.close()
 
-    session["msg"] = f"Check-in successful ✅ {teacher['full_name']}"
-
+    session["msg"] = "Check-in successful + OTP sent 📩"
     return redirect("/dashboard")
-# ================= OTP EMAIL =================
-def send_email(app, msg):
-    with app.app_context():
-        mail.send(msg)
-
-
+#================== SEND OTP =================  
 @app.route("/send_code", methods=["POST"])
 def send_code():
     email = request.form["email"].strip().lower()
