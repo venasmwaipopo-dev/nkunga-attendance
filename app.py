@@ -84,7 +84,6 @@ def save_register():
 
     return render_template("register.html", success="Account created ✅")
 
-
 # ================= LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
@@ -105,15 +104,10 @@ def login():
     if not check_password_hash(user["password"], password):
         return "Password mismatch ❌"
 
-    session["username"] = username
+    session["username"] = user["username"]
+    session["role"] = user["role"]
 
-    # SAFE ROLE HANDLING
-    role = user["role"] if user.get("role") else "teacher"
-    session["role"] = role
-
-    print("LOGIN ROLE:", role)
-
-    if role == "admin":
+    if user["role"] == "admin":
         return redirect("/admin")
 
     return redirect("/dashboard")
