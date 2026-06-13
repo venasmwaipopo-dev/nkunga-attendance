@@ -1,0 +1,30 @@
+<div class="topbar">
+    NKUNGA SEC.SCHOOL TEACHER'S ATTENDANCE SYSTEM
+</div>
+<form action="/checkin" method="POST">
+
+    {% if already_checked %}
+        <button disabled style="
+            background: gray;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: not-allowed;
+        ">
+            Already Checked In for Today
+        </button>
+
+    {% else %}
+        <button style="
+            background: green;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+        ">
+            ✅ Check In
+        </button>
+    {% endif %}
+
+</form>

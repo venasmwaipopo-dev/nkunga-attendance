@@ -1,0 +1,176 @@
+<div class="topbar">
+    NKUNGA SEC.SCHOOL TEACHER'S ATTENDANCE SYSTEM
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teacher Dashboard</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+            padding-top: 70px;
+        }
+
+        /* TOP BAR */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .container {
+            padding: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: #27ae60;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #1e8449;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+        }
+
+        .msg {
+            padding: 10px;
+            background: #f1c40f;
+            color: black;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .green {
+            background: #2ecc71;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .red {
+            background: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .gray-btn {
+            background: gray;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+    NKUNGA SEC.SCHOOL TEACHER'S ATTENDANCE SYSTEM
+</div>
+
+<div class="container">
+
+    <!-- WELCOME CARD -->
+    <div class="card">
+        <h2>👋 Welcome Teacher</h2>
+        <p><b>User:</b> {{ session['username'] }}</p>
+
+        {% if session.get('msg') %}
+            <div class="msg">
+                {{ session.get('msg') }}
+            </div>
+        {% endif %}
+
+        <!-- CHECK IN -->
+        <form action="/checkin" method="POST">
+
+            {% if already_checked %}
+                <button class="btn gray-btn" disabled>
+                    Already Checked In for Today
+                </button>
+            {% else %}
+                <button class="btn">
+                    ✅ Check In
+                </button>
+            {% endif %}
+
+        </form>
+    </div>
+
+    <!-- TABLE -->
+    <div class="card">
+        <h3>📅 Today's Attendance</h3>
+
+        <table>
+            <tr>
+                <th>Teacher</th>
+                <th>Subject</th>
+                <th>Time</th>
+                <th>Status</th>
+            </tr>
+
+            {% for t in teachers %}
+            <tr>
+                <td>{{ t['teacher_name'] }}</td>
+                <td>{{ t['subject'] }}</td>
+                <td>{{ t['checkin_time'] }}</td>
+
+                <td>
+                    {% if "Late" in t['status'] %}
+                        <span class="red">{{ t['status'] }}</span>
+                    {% else %}
+                        <span class="green">{{ t['status'] }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+
+        </table>
+    </div>
+
+</div>
+
+</body>
+</html>
